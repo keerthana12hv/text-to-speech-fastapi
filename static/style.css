@@ -1,0 +1,79 @@
+body {
+  font-family: 'Segoe UI', sans-serif;
+  background-color: #1e1e1e;
+  color: #f5f5f5;
+  padding: 20px;
+}
+
+.container {
+  max-width: 600px;
+  margin: auto;
+  background: #2b2b2b;
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+}
+
+h1 {
+  text-align: center;
+}
+
+textarea {
+  width: 100%;
+  padding: 10px;
+  font-size: 16px;
+  border-radius: 8px;
+  border: none;
+  resize: vertical;
+  margin-bottom: 15px;
+}
+
+button {
+  padding: 10px 20px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+button:hover {
+  background-color: #45a049;
+}
+
+audio {
+  margin-top: 15px;
+  width: 100%;
+}
+
+/* 🎤 Voice Dropdown (Day 4) */
+select {
+  width: 100%;
+  padding: 10px;
+  font-size: 16px;
+  border-radius: 8px;
+  border: none;
+  margin-bottom: 15px;
+  background-color: #3a3a3a;
+  color: #f5f5f5;
+}
+
+/* 📜 History List (Day 5) */
+.history-container {
+  margin-top: 30px;
+}
+
+.history-title {
+  margin-bottom: 10px;
+  font-size: 18px;
+  text-align: center;
+  font-weight: bold;
+}
+
+.history-item {
+  background-color: #3a3a3a;
+  padding: 12px;
+  border-radius: 10px;
+  margin-bottom: 10px;
+} 

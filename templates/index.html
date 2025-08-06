@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Murf API Voice Generator</title>
+  <link rel="icon" type="image/png" href="/static/favicon.png">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>🎤 Murf Voice Generator</h1>
+
+    <!-- Voice Selector -->
+    <label for="voice"><strong>Select Voice:</strong></label>
+    <select name="voice" id="voice" required>
+      <option value="en-IN-arohi">Arohi (Female, India)</option>
+      <option value="en-IN-rohan">Rohan (Male, India)</option>
+      <option value="en-IN-alia">Alia (Narration)</option>
+      <option value="en-IN-priya">Priya (Narration)</option>
+      <option value="en-IN-isha">Isha</option>
+      <option value="en-IN-eashwar">Eashwar</option>
+    </select>
+
+    <!-- Text Input -->
+    <br><br>
+    <textarea id="text-input" rows="5" placeholder="Type your text here..." required></textarea>
+    <button onclick="generateAudio()">Generate Audio</button>
+    <p id="status"></p>
+    <audio id="audio-player" controls style="display:none;"></audio>
+
+    <hr>
+
+    <!-- Audio History -->
+    <h2>🕘 Recent Audio History</h2>
+    {% if history %}
+      {% for item in history %}
+        <div class="history-item">
+          <p><strong>🗣 Voice:</strong> {{ item.voice }}</p>
+          <p><strong>💬 Text:</strong> {{ item.text }}</p>
+          <audio controls>
+            <source src="{{ item.audio_url }}" type="audio/mpeg">
+            Your browser does not support the audio element.
+          </audio>
+          <hr>
+        </div>
+      {% endfor %}
+    {% else %}
+      <p>No audio history yet.</p>
+    {% endif %}
+
+    <hr>
+
+    <!-- Echo Bot Section -->
+    <h2>🎧 Echo Bot</h2>
+    <p>🎙 Record your voice and listen back!</p>
+    <button id="startBtn">Start Recording</button>
+    <button id="stopBtn" disabled>Stop Recording</button>
+    <audio id="echo-audio" controls style="display:none;"></audio>
+    <p id="recordStatus"></p>
+  </div>
+
+  <!-- JavaScript Section -->
+  <script>
+    // ✅ Generate Audio using Murf API
+    async function generateAudio() {
+      const text = document.getElementById('text-input').value;
+      const voice = document.getElementById('voice').value;
+      const status = document.getElementById('status');
+      const audioPlayer = document.getElementById('audio-player');
+
+      if (!text.trim()) {
+        status.textContent = "⚠️ Please enter some text.";
+        return;
+      }
+
+      status.textContent = "⏳ Generating audio...";
+      audioPlayer.style.display = "none";
+
+      try {
+        const response = await fetch('/generate-audio', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, voice })
+        });
+
+        const data = await response.json();
+        if (response.ok && data.data && data.data.audioFile) {
+          status.textContent = "✅ Audio ready!";
+          audioPlayer.src = data.data.audioFile;
+          audioPlayer.style.display = "block";
+        } else {
+          status.textContent = "❌ Failed to generate audio.";
+          console.error(data);
+        }
+      } catch (error) {
+        status.textContent = "❌ Error contacting server.";
+        console.error("Error:", error);
+      }
+    }
+
+    // ✅ Echo Bot Logic
+    let mediaRecorder;
+    let audioChunks = [];
+
+    const startBtn = document.getElementById("startBtn");
+    const stopBtn = document.getElementById("stopBtn");
+    const echoAudio = document.getElementById("echo-audio");
+    const recordStatus = document.getElementById("recordStatus");
+
+    startBtn.addEventListener("click", async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
+
+        mediaRecorder.ondataavailable = event => {
+          audioChunks.push(event.data);
+        };
+
+        mediaRecorder.onstop = async () => {
+          const blob = new Blob(audioChunks, { type: "audio/wav" });
+          const url = URL.createObjectURL(blob);
+          echoAudio.src = url;
+          echoAudio.style.display = "block";
+          recordStatus.textContent = "✅ Recording complete. Playing back...";
+
+          // Upload to FastAPI
+          recordStatus.textContent = "⬆️ Uploading audio...";
+          const formData = new FormData();
+          formData.append("file", blob, "echo_recording.wav");
+
+          try {
+            const response = await fetch("http://localhost:8000/upload-audio", {
+              method: "POST",
+              body: formData
+            });
+            const result = await response.json();
+            recordStatus.textContent = `✅ Your voice has been uploaded successfully.`
+          } catch (error) {
+            console.error("Upload failed:", error);
+            recordStatus.textContent = "❌ Upload failed.";
+          }
+        };
+
+        mediaRecorder.start();
+        recordStatus.textContent = "🎙 Recording...";
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+      } catch (err) {
+        console.error("Microphone access denied:", err);
+        recordStatus.textContent = "❌ Please allow microphone access.";
+      }
+    });
+
+    stopBtn.addEventListener("click", () => {
+      if (mediaRecorder) {
+        mediaRecorder.stop();
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+      }
+    });
+  </script>
+</body>
+</html>
