@@ -30,26 +30,6 @@
 
     <hr>
 
-    <!-- Audio History -->
-    <h2>🕘 Recent Audio History</h2>
-    {% if history %}
-      {% for item in history %}
-        <div class="history-item">
-          <p><strong>🗣 Voice:</strong> {{ item.voice }}</p>
-          <p><strong>💬 Text:</strong> {{ item.text }}</p>
-          <audio controls>
-            <source src="{{ item.audio_url }}" type="audio/mpeg">
-            Your browser does not support the audio element.
-          </audio>
-          <hr>
-        </div>
-      {% endfor %}
-    {% else %}
-      <p>No audio history yet.</p>
-    {% endif %}
-
-    <hr>
-
     <!-- Echo Bot Section -->
     <h2>🎧 Echo Bot</h2>
     <p>🎙 Record your voice and listen back!</p>
@@ -57,11 +37,20 @@
     <button id="stopBtn" disabled>Stop Recording</button>
     <audio id="echo-audio" controls style="display:none;"></audio>
     <p id="recordStatus"></p>
+
+    <!-- Manual Transcription Upload -->
+    <form id="transcribe-form" enctype="multipart/form-data">
+      <input type="file" name="file" accept="audio/*" required />
+      <button type="submit">Transcribe Recording</button>
+    </form>
+    <div id="transcription-result"></div>
+
+    <!-- 📝 Transcription Output -->
+    <p id="transcriptionText" style="margin-top: 10px; font-style: italic;"></p>
   </div>
 
-  <!-- JavaScript Section -->
   <script>
-    // ✅ Generate Audio using Murf API
+    // ✅ Generate Audio with Murf API
     async function generateAudio() {
       const text = document.getElementById('text-input').value;
       const voice = document.getElementById('voice').value;
@@ -98,7 +87,24 @@
       }
     }
 
-    // ✅ Echo Bot Logic
+    // ✅ Manual File Transcription
+    document.getElementById("transcribe-form").addEventListener("submit", async function (e) {
+      e.preventDefault();
+      const fileInput = this.querySelector('input[type="file"]');
+      const formData = new FormData();
+      formData.append("file", fileInput.files[0]);
+
+      const res = await fetch("/transcribe/file", { method: "POST", body: formData });
+      const data = await res.json();
+
+      if (data.transcript) {
+        document.getElementById("transcription-result").innerText = "Transcription: " + data.transcript;
+      } else {
+        document.getElementById("transcription-result").innerText = "Error: " + (data.error || "Something went wrong");
+      }
+    });
+
+    // ✅ Echo Bot Recording + Transcription
     let mediaRecorder;
     let audioChunks = [];
 
@@ -106,6 +112,7 @@
     const stopBtn = document.getElementById("stopBtn");
     const echoAudio = document.getElementById("echo-audio");
     const recordStatus = document.getElementById("recordStatus");
+    const transcriptionText = document.getElementById("transcriptionText");
 
     startBtn.addEventListener("click", async () => {
       try {
@@ -113,14 +120,11 @@
         mediaRecorder = new MediaRecorder(stream);
         audioChunks = [];
 
-        mediaRecorder.ondataavailable = event => {
-          audioChunks.push(event.data);
-        };
+        mediaRecorder.ondataavailable = event => audioChunks.push(event.data);
 
         mediaRecorder.onstop = async () => {
           const blob = new Blob(audioChunks, { type: "audio/wav" });
-          const url = URL.createObjectURL(blob);
-          echoAudio.src = url;
+          echoAudio.src = URL.createObjectURL(blob);
           echoAudio.style.display = "block";
           recordStatus.textContent = "✅ Recording complete. Playing back...";
 
@@ -130,12 +134,17 @@
           formData.append("file", blob, "echo_recording.wav");
 
           try {
-            const response = await fetch("http://localhost:8000/upload-audio", {
-              method: "POST",
-              body: formData
-            });
+            const response = await fetch("/transcribe/file", { method: "POST", body: formData });
             const result = await response.json();
-            recordStatus.textContent = `✅ Your voice has been uploaded successfully.`
+
+            if (response.ok && result.transcript) {
+              transcriptionText.textContent = `📝 Transcription: "${result.transcript}"`;
+              recordStatus.textContent = "✅ Transcription complete.";
+            } else {
+              recordStatus.textContent = "❌ Transcription failed.";
+              transcriptionText.textContent = "";
+              console.error(result);
+            }
           } catch (error) {
             console.error("Upload failed:", error);
             recordStatus.textContent = "❌ Upload failed.";
